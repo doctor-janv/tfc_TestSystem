@@ -1,0 +1,4 @@
+basic_python:
+  executable: "python"
+  args: "-c 'print(\"Hello world from python\")'"
+  checks: [{type: ExitCodeCheck}]
