@@ -7,12 +7,12 @@ sys.path.append(file_path + "./")
 
 # from tfc_PyFactory.InputParameters import InputParameters
 
-PROJECT_ROOT_PATH = f'{file_path}/../../../'
-
 import tfc_PyFactory
 from tfc_PyFactory import *
 import TFCTestObject
 from TFCTestObject import *
+from TFCTraceabilityMatrix import *
+from TFCTestResultsDatabase import *
 
 import os
 import yaml
@@ -36,7 +36,7 @@ loader.add_implicit_resolver(
 import time
 
 # ===================================================================
-class TFCTestSystem(TFCObject):
+class TFCTestSystem(TFCObject, TFCTraceabilityMatrix, TFCTestResultsDatabase):
     """Test system to run any type of test with any type of executable.
     The system has a set of input parameters that can be set directly and
     additional options that can be set from a configuration file. By default
@@ -47,10 +47,15 @@ class TFCTestSystem(TFCObject):
         params = TFCObject.getInputParameters()
 
         params.addRequiredParam("directory", ParameterType.STRING,
-                                "The test directory in which to find the tests.")
+                                "The test directory in which to find the tests. "
+                                "If this string is a comma separated string, " \
+                                "each directory will be scanned.")
         params.addOptionalParam("executable", "python3",
                                 "The executable to use for the tests (May be overridden"
                                 " from the configuration file).")
+        params.addOptionalParam("project_root", "",
+                                "Root of the project. If not supplied will revert to " \
+                                "current working directoy.")
 
         params.addOptionalParam("num_jobs", int(4),
                                 "The number of jobs that may run at the same time.")
@@ -68,6 +73,13 @@ class TFCTestSystem(TFCObject):
                                 "The name of the default config file")
         params.addOptionalParam("exclude_folders", [],
                                 "List of directories to exclude when searching for test files")
+        params.addOptionalParam("requirement_docs", [],
+                                "List of documents to search for requirements.")
+        params.addOptionalParam("requirements_matrix_outputfile", "TraceAbilityMatrix.md",
+                                "File to which to write the requirements "
+                                "traceability matrix.")
+        params.addOptionalParam("test_results_database_outputfile", "TestResults.yaml",
+                                "File to which the results database is to be written.")
 
         return params
 
@@ -92,12 +104,50 @@ class TFCTestSystem(TFCObject):
         for subparam in exclude_param:
             self.exclude_folders_.append(subparam.getStringValue())
 
+        # Requirement Documents
+        requirement_docs = params.getParam("requirement_docs")
+        self.requirement_docs_ = []
+        for subparam in requirement_docs:
+            self.requirement_docs_.append(subparam.getStringValue())
+
+        if len(self.requirement_docs_) > 0:
+            print("Requirement docs:")
+            for req_doc in self.requirement_docs_:
+                existence_status = "" if os.path.isfile(req_doc) else " (not found)"
+                print(f"  {req_doc}" + existence_status)
+
+        self.requirement_blocks_ = []
+        for req_doc in self.requirement_docs_:
+            if not os.path.isfile(req_doc):
+                continue
+
+            doc_reqs = self.parseRequirementDocument(req_doc)
+
+            self.requirement_blocks_.append(doc_reqs)
+
+            # # Verbose printing for testing
+            # print(f'Requirements block for "{doc_reqs["filepath"]}":')
+            # for req in doc_reqs["requirements"]:
+            #     print(f"  {req["id_tag"]}:")
+            #     print("    " + req["basic_title"])
+            #     for line in req["text"].splitlines():
+            #         print("    " + line.strip())
+
+        self.requirements_matrix_outputfile_ = \
+            params.getParam("requirements_matrix_outputfile").getStringValue()
+
+        self.test_results_database_outputfile_ = \
+            params.getParam("test_results_database_outputfile").getStringValue()
+
         # Config file options
         self.print_width_ = 120
         self.default_args_ = ""
         self.env_vars_ = []
 
-        self.project_root_ = os.path.abspath(file_path + "/../../../")
+        project_root = params.getParam("project_root").getStringValue()
+        if project_root == "":
+            self.project_root_ = os.getcwd() if project_root == "" else project_root
+
         print("Project-root", self.project_root_)
 
         # Init weight map
@@ -120,8 +170,18 @@ class TFCTestSystem(TFCObject):
 
         self.num_init_warnings_ = 0
 
-        test_files = self._recursiveFindTestListFiles(self.directory_, self.exclude_folders_, True)
-        self._parseTestFiles(test_files=test_files)
+        directories = []
+        if self.directory_.find(",") < 0:
+            directories.append(self.directory_)
+        else:
+            directory_strings = self.directory_.split(",")
+            directories = directory_strings
+
+        for directory in directories:
+            test_files = self._recursiveFindTestListFiles(directory,
+                                                          self.exclude_folders_,
+                                                          True)
+            self._parseTestFiles(test_files=test_files)
 
         for test in self.tests_:
             self.max_num_procs_ = max(self.max_num_procs_, test.num_procs_)
@@ -192,7 +252,7 @@ class TFCTestSystem(TFCObject):
     def _parseTestFiles(self, test_files: list[str]):
         """Parses each *tests*.yaml file and creates the tests."""
         for file_name in test_files:
-            pretty_name = os.path.relpath(file_name, PROJECT_ROOT_PATH)
+            pretty_name = os.path.relpath(file_name, self.project_root_)
             print("Parsing " + pretty_name)
             with open(file_name) as yaml_file:
                 try:
@@ -416,17 +476,17 @@ class TFCTestSystem(TFCObject):
         else:
             print(f"\033[31mNumber of failed tests            : {num_tests_failed}\033[0m")
 
+        self.writeRequirementsTraceabilityMatrix()
+        self.writeResultsDatabase()
+
         # Printing failure logs
         failure_reasons: list[str] = []
         for test in active_tests:
+
             if test.passed_:
-                reason = f'{test.name_}:\n'
                 continue
-            else:
-                if test.fail_flag_reason_ != '':
-                    reason = f'{test.name_}:\n' + f'{test.fail_flag_reason_}'
-                else:
-                    reason = f'{test.name_}:\n'
+
+            reason = f'{test.name_}:\n' + f'{test.fail_flag_reason_}'
 
             for check in test.checks_:
                 if check.failed_:

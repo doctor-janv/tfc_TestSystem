@@ -12,6 +12,23 @@ class ParameterType(enum.IntEnum):
     ARRAY = 5,
     BLOCK = 6
 
+def ParameterTypeName(type_id: ParameterType) -> str:
+    match type_id:
+        case ParameterType.BOOLEAN:
+            return "ParameterType.BOOLEAN"
+        case ParameterType.INTEGER:
+            return "ParameterType.INTEGER"
+        case ParameterType.FLOAT:
+            return "ParameterType.FLOAT"
+        case ParameterType.STRING:
+            return "ParameterType.STRING"
+        case ParameterType.ARRAY:
+            return "ParameterType.ARRAY"
+        case ParameterType.BLOCK:
+            return "ParameterType.BLOCK"
+
+    return "ParameterType.NO_VALUE"
+
 
 class Parameter:
     """A class to store a hierarchical input-parameters based on primitive types."""
@@ -280,8 +297,9 @@ class InputParameters(Parameter):
                         in_param.setValue(param)
                     else:
                         if in_param.type != param.type:
-                            raise Exception(f'ERROR: Attempting to assign type {str(param.type)}'
+                            raise Exception(f'ERROR: Attempting to assign '
+                                            f'type {ParameterTypeName(param.type)}'
                                             f' to parameter "{in_param.name}" which is of type '
-                                            f'{str(in_param.type)}')
+                                            f'{ParameterTypeName(in_param.type)}')
 
                         in_param.setValue(param)

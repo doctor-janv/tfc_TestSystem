@@ -26,3 +26,4 @@ They have the following parameters:
   - `debug`. (Optional, default = False). Flag for debug printout. Will print the console output file to the screen for failed tests.
   - `executable`. (Optional, default = ""). Executable to use instead of system wide default.
   - `copy_test`. (Optional, default = []). This parameter provides a way to run a copy of a given test with modifications made by a script. A list of length 3 should be provided specifying the name extension to be added to the copied file name, the path to the script for creating a copy of the test, and the file location of the file to be copied. The script specified should create a copy of the test input file with any number of modifications. Both the original and the new input decks will be included in the test system.
+  - `requirements`. (Optional, default = []). An array of strings representing id_tags for requirements that are addressed by this test.

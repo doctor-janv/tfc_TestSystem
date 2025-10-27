@@ -77,6 +77,8 @@ params["weights"] = argv.weights
 params["config_file"] = argv.config_file
 if argv.exclude_folders != ['']:
     params["exclude_folders"] = argv.exclude_folders
+params["requirement_docs"] = ["example_requirements/requirements.md",
+                              "example_requirements/requirements1.md"]
 
 # ========================================================= Process Environment
 #                                                           Variables

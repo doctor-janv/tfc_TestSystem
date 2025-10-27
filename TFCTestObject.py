@@ -84,6 +84,9 @@ class TFCTestObject(TFCObject):
                                 "Input is a three item list specifying the name extension for the"
                                 "new copied test, the path to the script to create the copied file,"
                                 "and the file location of the input file to be copied.")
+        params.addOptionalParam("requirements", [],
+                                "An array of strings representing id_tags for requirements "
+                                "that are addressed by this test.")
 
         return params
 
@@ -110,6 +113,11 @@ class TFCTestObject(TFCObject):
         self.executable_ = params.getParam("executable").getStringValue()
         self.copy_test_ = params.getParam("copy_test")
 
+        self.requirements_ = []
+        requirements_param = params.getParam("requirements")
+        for sub_param in requirements_param:
+            self.requirements_.append(sub_param.getStringValue())
+
         self.test_system_reference_ = None
 
         self.checks_: list[CheckBase] = []
@@ -124,13 +132,16 @@ class TFCTestObject(TFCObject):
             check = PyFactory.makeObject(id, check_input)
             self.checks_.append(check)
 
-        pretty_name = os.path.relpath(self.name_, PROJECT_ROOT_PATH)
+        # pretty_name = os.path.relpath(self.name_, PROJECT_ROOT_PATH)
+        pretty_name = self.name_ # experimental
 
         print(f'  Created test-job \"{pretty_name}\" with {len(self.checks_)} checks')
 
         self.ran_: bool = False
         self.submitted_: bool = False
         self.passed_: bool = False
+
+        self.test_result_annotation_ = ""
 
 
     def setTestSystemReference(self, ref):
@@ -221,7 +232,9 @@ class TFCTestObject(TFCObject):
 
         # Make the output directory
         if not os.path.isdir(dir_+"/out"):
-                    os.mkdir(dir_+"/out")
+            print(test_system.project_root_)
+            print(os.getcwd(), os.path.realpath(dir_), dir_)
+            os.mkdir(dir_+"/out")
 
         self._process_ = subprocess.Popen(cmd,
                                         cwd=dir_ + "/" +
@@ -339,11 +352,18 @@ class TFCTestObject(TFCObject):
                 suffix += "  \033[36m[" + annotation + "]\033[0m"
             cntl_char_pad += 5 + 4
         suffix += "  \033[32mPassed\033[0m" if self.passed_ else (
-            "  \033[35mFailed\033[0m" if self.fail_flag_ != "" else "  \033[31mFailed\033[0m")
+            "  \033[35mFailed\033[0m" if self.fail_flag_ != "" else
+            "  \033[31mFailed\033[0m")
+
+        self.test_result_annotation_ = ""
+        for annotation in annotations:
+            self.test_result_annotation_ += f"[{annotation}]"
+
 
         cntl_char_pad += 5 + 4
 
-        pretty_name = os.path.relpath(self.name_, PROJECT_ROOT_PATH)
+        # pretty_name = os.path.relpath(self.name_, PROJECT_ROOT_PATH)
+        pretty_name = self.name_ # experimental
 
         time_taken = self._time_end_ - self._time_start_
 

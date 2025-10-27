@@ -1,4 +1,4 @@
-basic_python:
+basic_python2:
   executable: "python"
   args: "-c 'print(\"Hello world from python\")'"
   checks: [{type: ExitCodeCheck}]
@@ -7,13 +7,9 @@ basic_python1:
   args: "-c 'print(\"Hello world from python\")'"
   requirements: ["inparams", "cli1"]
   checks: [{type: ExitCodeCheck}]
-basic_python2:
+
+basic_python_fail:
   executable: "python"
-  args: "-c 'print(\"Hello world from python\")'"
-  requirements: ["utesting", "cconv", "cli1"]
-  checks: [{type: ExitCodeCheck}]
-skip_test:
-  requirements: ["utesting", "cconv", "inparams1", "cli1", "test1"]
-  args: ""
-  skip: "I just want to skip"
+  args: "-c 'exit(10)'"
+  requirements: ["inparams", "cli1"]
   checks: [{type: ExitCodeCheck}]
